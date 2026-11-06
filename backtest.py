@@ -69,7 +69,8 @@ def _pre_universe(meta, te_start: int, u_candidates: np.ndarray,
 def simulate_year(meta, dates, year: int, preds: pd.DataFrame,
                   cost_buy: float, cost_sell: float, cooldown: int,
                   reentry: str, universe_top: int, min_price: float,
-                  stop_enabled: bool = True) -> tuple[pd.DataFrame, dict, list]:
+                  stop_enabled: bool = True, min_hist: int = 250,
+                  market: str = "cn") -> tuple[pd.DataFrame, dict, list]:
     year_pred = preds[preds["year"] == year].copy()
     if year_pred.empty:
         return pd.DataFrame(), {}, []
@@ -81,7 +82,7 @@ def simulate_year(meta, dates, year: int, preds: pd.DataFrame,
     te_mask = (meta["date_idx"] >= ti0) & (meta["date_idx"] <= ti1)
     te_codes = np.unique(meta["code_idx"][te_mask])
     u_codes, last_close_pre = _pre_universe(
-        meta, ti0, te_codes, min_hist=250, min_price=min_price,
+        meta, ti0, te_codes, min_hist=min_hist, min_price=min_price,
         top_n=universe_top)
     if len(u_codes) == 0:
         return pd.DataFrame(), {}, []
@@ -230,7 +231,8 @@ def simulate_year(meta, dates, year: int, preds: pd.DataFrame,
 def run_backtest(out_dir: str, test_start_year: int, test_end_year: int,
                  cost_buy: float = 0.001, cost_sell: float = 0.001,
                  cooldown: int = 10, reentry: str = "clear",
-                 universe_top: int = 1500, min_price: float = 2.0) -> None:
+                 universe_top: int = 1500, min_price: float = 2.0,
+                 min_hist: int = 250, market: str = "cn") -> None:
     meta, X, codes, dates, feature_names = load_dataset(out_dir)
     dates = [str(x) for x in dates]
     preds = pd.read_csv(os.path.join(out_dir, "predictions_wf.csv.gz"))
@@ -254,10 +256,12 @@ def run_backtest(out_dir: str, test_start_year: int, test_end_year: int,
             continue
         d_stop, m_stop, tr = simulate_year(
             meta, dates, int(year), preds, cost_buy, cost_sell, cooldown,
-            reentry, universe_top, min_price, stop_enabled=True)
+            reentry, universe_top, min_price, stop_enabled=True,
+            min_hist=min_hist, market=market)
         d_bench, m_bench, _ = simulate_year(
             meta, dates, int(year), preds, cost_buy, cost_sell, cooldown,
-            reentry, universe_top, min_price, stop_enabled=False)
+            reentry, universe_top, min_price, stop_enabled=False,
+            min_hist=min_hist, market=market)
         if d_stop.empty:
             continue
         row = {"year": int(year), "universe": int(m_stop["universe"])}

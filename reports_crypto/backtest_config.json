@@ -1,0 +1,16 @@
+{
+ "cost_buy": 0.001,
+ "cost_sell": 0.001,
+ "cooldown": 10,
+ "reentry": "clear",
+ "universe_top": 2000,
+ "min_price": 0.0,
+ "test_years": [
+  2021,
+  2022,
+  2023,
+  2024,
+  2025,
+  2026
+ ]
+}

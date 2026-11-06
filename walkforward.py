@@ -178,7 +178,9 @@ def run_walkforward(out_dir: str, db_path: str, sample_start: str,
                     precision_target: float = 0.28,
                     fixed_threshold: float = 0.30,
                     num_threads: int = 4,
-                    seed: int = 42) -> pd.DataFrame:
+                    seed: int = 42,
+                    market: str = "cn",
+                    min_train: int = 50000) -> pd.DataFrame:
     meta, X, codes, dates, feature_names = load_dataset(out_dir)
     dates_np = np.asarray([str(x) for x in dates], dtype=object)
     dates = dates_np.tolist()
@@ -191,7 +193,8 @@ def run_walkforward(out_dir: str, db_path: str, sample_start: str,
     gains = np.zeros(len(feature_names), dtype=np.float64)
     n_gain = 0
     for year in range(test_start_year, test_end_year + 1):
-        fold = fold_ranges(meta, dates, year, train_years, sample_start, horizon)
+        fold = fold_ranges(meta, dates, year, train_years, sample_start,
+                           horizon, min_train=min_train)
         if fold is None:
             log(f"[{year}] 跳过: 训练/验证样本不足")
             continue
@@ -333,9 +336,13 @@ def run_walkforward(out_dir: str, db_path: str, sample_start: str,
         latest[f"stop_loss_{int(round(t * 100)):03d}"] = (
             latest["prob"] >= t).astype(int)
     con = connect(db_path)
-    names = load_stock_names(con)
+    if market == "crypto":
+        latest["name"] = ""
+        latest["industry"] = ""
+    else:
+        names = load_stock_names(con)
+        latest = latest.merge(names, on="code", how="left")
     con.close()
-    latest = latest.merge(names, on="code", how="left")
     latest = latest.sort_values(["signal", "prob"], ascending=[False, False])
     latest.to_csv(os.path.join(out_dir, "latest_signals.csv"), index=False)
     log(f"最新交易日 {last_date}: {int(latest['signal'].sum())}/{len(latest)} "

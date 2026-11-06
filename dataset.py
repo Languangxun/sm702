@@ -11,8 +11,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from data import (connect, load_bars, row_counts_by_code,
-                  trading_calendar)
+from data import (connect, load_bars, row_counts_by_code, trading_calendar)
 from features import compute_features, compute_labels
 
 
@@ -32,16 +31,17 @@ def build_dataset(
     limit_codes: int = 0,
     seed: int = 42,
     max_gap: int = 5,
+    market: str = "cn",
 ) -> None:
     os.makedirs(out_dir, exist_ok=True)
     con = connect(db_path)
-    counts = row_counts_by_code(con, start, end)
+    counts = row_counts_by_code(con, start, end, market)
     codes = counts["code"].tolist()
     if limit_codes and limit_codes < len(codes):
         rs = np.random.RandomState(seed)
         codes = sorted(rs.choice(codes, size=limit_codes, replace=False).tolist())
         counts = counts[counts["code"].isin(codes)].copy()
-    dates = trading_calendar(con, start, end)
+    dates = trading_calendar(con, start, end, market)
     date_map = {d: i for i, d in enumerate(dates)}
     code_map = {c: i for i, c in enumerate(codes)}
     counts = counts.set_index("code").loc[codes]
@@ -63,7 +63,7 @@ def build_dataset(
     t0 = time.time()
     for ci, start_i in enumerate(range(0, len(codes), chunk_size)):
         chunk = codes[start_i:start_i + chunk_size]
-        df = load_bars(con, start, end, chunk)
+        df = load_bars(con, start, end, chunk, market)
         if df.empty:
             raise RuntimeError(f"empty chunk {chunk[:2]}")
         lo, hi = int(offsets[start_i]), int(offsets[start_i + len(chunk)])
@@ -126,6 +126,7 @@ def build_dataset(
                    "max_gap": max_gap, "n_rows": n_rows,
                    "n_codes": len(codes), "n_dates": len(dates),
                    "n_features": len(feature_names),
-                   "limit_codes": limit_codes, "seed": seed},
+                   "limit_codes": limit_codes, "seed": seed,
+                   "market": market},
                   f, ensure_ascii=False, indent=1)
     log(f"数据集完成: {out_dir}, 用时 {(time.time() - t0) / 60:.1f} min")

@@ -18,15 +18,23 @@ from features import compute_features, compute_labels
 from walkforward import fold_ranges, load_dataset
 
 
-def _check_feature_invariance(db_path: str, seed: int = 7) -> None:
+def _check_feature_invariance(db_path: str, seed: int = 7,
+                              market: str = "cn") -> None:
     con = connect(db_path)
-    codes = pd.read_sql_query(
-        "SELECT DISTINCT code FROM daily_bars WHERE date >= '2019-01-01' "
-        "AND date <= '2022-12-31' AND code GLOB 'sh60[0135]*' "
-        "ORDER BY code LIMIT 40", con)["code"].tolist()
+    if market == "crypto":
+        codes = pd.read_sql_query(
+            "SELECT DISTINCT code FROM crypto_daily WHERE date >= '2019-01-01' "
+            "AND date <= '2022-12-31' AND code < 'M%' ORDER BY code",
+            con)["code"].tolist()
+    else:
+        codes = pd.read_sql_query(
+            "SELECT DISTINCT code FROM daily_bars WHERE date >= '2019-01-01' "
+            "AND date <= '2022-12-31' AND code GLOB 'sh60[0135]*' "
+            "ORDER BY code LIMIT 40", con)["code"].tolist()
+    codes = sorted(codes)
     rs = np.random.RandomState(seed)
     codes = sorted(rs.choice(codes, size=min(12, len(codes)), replace=False))
-    full = load_bars(con, "2018-06-01", "2022-12-31", codes)
+    full = load_bars(con, "2018-06-01", "2022-12-31", codes, market)
     con.close()
     cut_dates = ["2020-06-30", "2021-06-30", "2022-06-30"]
     for cut in cut_dates:
@@ -98,9 +106,10 @@ def _check_fold_purge(out_dir: str, horizon: int) -> None:
     print(f"  [PASS] 切分隔离: {checked} 个折 train<valid<test, 已按 H 清空边界")
 
 
-def run_audit(db_path: str, out_dir: str | None = None, horizon: int = 10) -> None:
+def run_audit(db_path: str, out_dir: str | None = None, horizon: int = 10,
+              market: str = "cn") -> None:
     print("PIT 审计 ...")
-    _check_feature_invariance(db_path)
+    _check_feature_invariance(db_path, market=market)
     _check_label_sanity()
     if out_dir and __import__("os").path.exists(
             __import__("os").path.join(out_dir, "meta.npz")):

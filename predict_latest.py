@@ -22,16 +22,22 @@ def log(msg: str) -> None:
 
 def predict_latest(out_dir: str, db_path: str, asof: str | None = None,
                    lookback_days: int = 900, min_hist: int = 250,
-                   min_price: float = 2.0) -> pd.DataFrame:
+                   min_price: float = 2.0, market: str = "cn"
+                   ) -> pd.DataFrame:
     con = connect(db_path)
     if asof is None:
-        asof = con.execute(
-            "SELECT MAX(date) FROM daily_bars").fetchone()[0]
+        if market == "crypto":
+            asof = con.execute(
+                "SELECT MAX(date) FROM crypto_daily").fetchone()[0]
+        else:
+            asof = con.execute(
+                "SELECT MAX(date) FROM daily_bars").fetchone()[0]
     start = (pd.Timestamp(asof) - pd.Timedelta(days=lookback_days)).strftime(
         "%Y-%m-%d")
     log(f"加载 {start} ~ {asof} 行情 ...")
-    bars = load_bars(con, start, asof)
-    names = load_stock_names(con)
+    bars = load_bars(con, start, asof, market=market)
+    if market != "crypto":
+        names = load_stock_names(con)
     con.close()
     if bars.empty:
         raise RuntimeError("no bars")
@@ -73,7 +79,12 @@ def predict_latest(out_dir: str, db_path: str, asof: str | None = None,
     for t in (0.20, 0.25, 0.30, 0.35):
         out[f"stop_loss_{int(round(t * 100)):03d}"] = (
             out["prob"] >= t).astype(int)
-    out = out.merge(names, on="code", how="left")
+    out = out.copy()
+    if market == "crypto":
+        out["name"] = ""
+        out["industry"] = ""
+    else:
+        out = out.merge(names, on="code", how="left")
     out = out.sort_values(["stop_loss", "prob"], ascending=[False, False])
     out.to_csv(os.path.join(out_dir, "latest_signals.csv"), index=False)
     stop = out[out["stop_loss"] == 1]
@@ -92,5 +103,8 @@ if __name__ == "__main__":
                      "stock_cache.db")))
     ap.add_argument("--asof", default=None)
     ap.add_argument("--lookback-days", type=int, default=900)
+    ap.add_argument("--min-price", type=float, default=2.0)
+    ap.add_argument("--market", default="cn", choices=["cn", "crypto"])
     args = ap.parse_args()
-    predict_latest(args.out, args.db, args.asof, args.lookback_days)
+    predict_latest(args.out, args.db, args.asof, args.lookback_days,
+                   min_price=args.min_price, market=args.market)

@@ -1,0 +1,16 @@
+{
+ "db": "/home/lan/桌面/sm701/stock_cache.db",
+ "start": "2017-01-01",
+ "end": "2026-11-03",
+ "horizon": 10,
+ "dd_threshold": 0.08,
+ "newhigh_threshold": 0.03,
+ "max_gap": 5,
+ "n_rows": 155859,
+ "n_codes": 99,
+ "n_dates": 3366,
+ "n_features": 120,
+ "limit_codes": 0,
+ "seed": 42,
+ "market": "crypto"
+}

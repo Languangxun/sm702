@@ -63,6 +63,10 @@ def parse_args():
     ap.add_argument("--universe-top", type=int, default=1500)
     ap.add_argument("--min-price", type=float, default=2.0)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--market", default="cn", choices=["cn", "crypto"],
+                    help="cn: A 股; crypto: sm701 crypto_daily USDT 合约")
+    ap.add_argument("--min-train", type=int, default=50000,
+                    help="walk-forward 训练集最小样本数（crypto 可调小）")
     ap.add_argument("--rebuild", action="store_true")
     return ap.parse_args()
 
@@ -81,7 +85,8 @@ def _dataset_ok(args) -> bool:
             and cfg.get("horizon") == args.horizon
             and cfg.get("dd_threshold") == args.dd_threshold
             and cfg.get("newhigh_threshold") == args.newhigh_threshold
-            and cfg.get("limit_codes") == args.limit_codes)
+            and cfg.get("limit_codes") == args.limit_codes
+            and cfg.get("market") == args.market)
 
 
 def main():
@@ -103,14 +108,14 @@ def main():
             args.out, args.db, args.data_start, args.data_end,
             args.horizon, args.dd_threshold, args.newhigh_threshold,
             chunk_size=args.chunk_size, limit_codes=args.limit_codes,
-            seed=args.seed)
+            seed=args.seed, market=args.market)
     if args.mode == "build":
         return
     if args.mode in ("all", "quick"):
-        run_audit(args.db, args.out, args.horizon)
+        run_audit(args.db, args.out, args.horizon, market=args.market)
     if args.mode == "audit":
         run_audit(args.db, args.out if os.path.exists(meta_path) else None,
-                  args.horizon)
+                  args.horizon, market=args.market)
         return
     if args.mode in ("all", "quick", "train"):
         t0 = time.time()
@@ -119,14 +124,17 @@ def main():
             args.test_end_year, args.train_years, args.horizon, args.rounds,
             args.lr, args.leaves, args.min_data, args.early_stop,
             args.threshold_mode, args.precision_target,
-            args.fixed_threshold, args.threads, seed=args.seed)
+            args.fixed_threshold, args.threads, seed=args.seed,
+            market=args.market, min_train=args.min_train)
         log(f"walk-forward 完成，用时 {(time.time() - t0) / 60:.1f} min")
     if args.mode in ("all", "quick", "backtest"):
         run_backtest(args.out, args.test_start_year, args.test_end_year,
                      args.cost_buy, args.cost_sell, args.cooldown,
-                     args.reentry, args.universe_top, args.min_price)
+                     args.reentry, args.universe_top, args.min_price,
+                     market=args.market)
     if args.mode in ("all", "quick", "predict"):
-        predict_latest(args.out, args.db)
+        predict_latest(args.out, args.db, market=args.market,
+                       min_price=args.min_price)
     with open(os.path.join(args.out, "run_config.json"), "w",
               encoding="utf-8") as f:
         json.dump(vars(args), f, ensure_ascii=False, indent=1)

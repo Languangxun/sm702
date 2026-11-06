@@ -3,6 +3,7 @@ __pycache__/
 *.log
 outputs/
 outputs_quick/
+outputs_crypto/
 sm702_export_*/
 .pytest_cache/
 .DS_Store
