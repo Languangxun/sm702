@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.log
+outputs/
+outputs_quick/
+sm702_export_*/
+.pytest_cache/
+.DS_Store
